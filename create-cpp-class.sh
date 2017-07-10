@@ -30,7 +30,7 @@ Usage: `basename $0` [OPTION]...  [path/]class-name  [author-name]
                   Style: class-file.cpp, ClassDefinition, 
                   class_instance, CLASS_MACRO
     author-name   Adds license header to all files if present.
-                  Example parameter: \"First LAST, <em@il.com>\"
+                  Example parameter: "First LAST, <em@il.com>"
 EOF
 exit 1
 }
@@ -74,8 +74,8 @@ EOF
 
 apply_naming_conventions() {
   author_name="$2"
-  dir_name=$(dirname $1)
-  base_name=$(basename $1)
+  dir_name=$(dirname "$1")
+  base_name=$(basename "$1")
   base_name_no_ext=${base_name%.*} # remove extension
   base_name_dashes=${base_name_no_ext//_/-} # replace _ with -
   base_name_dashes=${base_name_dashes// /-}
@@ -133,7 +133,7 @@ EOF
 }
 
 
-create_source_file(){
+create_source_file() {
 check_if_file_exists "$1"
 add_license '//' "$author_name" "$1" 
 cat << EOF >> "$1"
@@ -230,7 +230,7 @@ main() {
   create_source_file "${dir_name}/${file_name}.${extension_name}"
   create_unit_test_file "${dir_name}/${file_name}-test.${extension_name}"
   create_makefile "${dir_name}/${file_name}-makefile"
-  echo "Done. Output can be compiled with: cd $dir_name; make -f ${file_name}-makefile"
+  echo "Done. Output can be compiled with: cd \"$dir_name\"; make -f ${file_name}-makefile"
 }
 
 main "$@"
