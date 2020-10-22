@@ -2,7 +2,7 @@
 #######################################################################
 # Description: Please refer to command line help (-h)
 #
-# Copyright 2017 Norman MEINZER, <meinzer.norman@gmail.com>
+# Copyright 2020 Norman MEINZER, <real.norman.meinzer@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,8 +26,9 @@ including a stub class as well as a test object in main().
 Usage: `basename $0` [OPTION]...  [path/]class-name  [author-name]
     -h, --help    Display this help and exit
     -f            Force file overwrite
-    class-name    All names are derived from this parameter. 
-                  Style: class-file.cpp, ClassDefinition, 
+    -m            Create only the makefile
+    class-name    All names are derived from this parameter.
+                  Style: class-file.cpp, ClassDefinition,
                   class_instance, CLASS_MACRO
     author-name   Adds license header to all files if present.
                   Example parameter: "First LAST, <em@il.com>"
@@ -36,9 +37,35 @@ exit 1
 }
 
 
-if [[ $# -ge 1 ]] && [ "$1" = "-h" -o "$1" = "--help" ]; then
-  help
-fi
+main() {
+  if [[ $# -lt 1 ]]; then
+    help # class-name argument is mandatory
+  fi
+  [ "$1" == "-h" -o "$1" == "--help" ] && help
+
+  local flag
+  force_file_overwrite='no'
+  create_makefile_only_flag='no'
+  while getopts 'fm' flag; do
+    case ${flag} in
+      f) force_file_overwrite='yes' && shift ;;
+      m) create_makefile_only_flag='yes' && shift ;;
+      *) die "invalid option ${flag}" && shift ;;
+    esac
+  done
+
+  apply_naming_conventions "$@"
+  makefile_name="${dir_name}/makefile"
+  if [[ -f $makefile_name ]]; then
+    makefile_name="${dir_name}/${file_name}-makefile"
+  fi
+  create_makefile "$makefile_name"
+  [[ $create_makefile_only_flag == 'yes' ]] && exit 0
+  create_header_file "${dir_name}/${file_name}.h"
+  create_source_file "${dir_name}/${file_name}.${extension_name}"
+  create_unit_test_file "${dir_name}/${file_name}-test.${extension_name}"
+  echo "Done. Output can be compiled with: cd \"$dir_name\"; make -f $makefile_name"
+}
 
 
 add_license() {
@@ -50,7 +77,7 @@ border=${border:0:80}
 cat << EOF >> "$3"
 $border
 $comment Description :
-$comment Created     : `date --rfc-3339=date` 
+$comment Created     : `date --rfc-3339=date`
 $comment References  :
 $comment
 $comment Copyright `date +%Y` $author
@@ -82,9 +109,9 @@ apply_naming_conventions() {
   file_name=$(echo $base_name_dashes | tr '[:upper:]' '[:lower:]')
   instance_name=${file_name//-/_}
   macro_name=$(echo $instance_name | tr '[:lower:]' '[:upper:]')
-  for s in $(echo $file_name | sed 's/-/ /g'); do 
+  for s in $(echo $file_name | sed 's/-/ /g'); do
     camel_case+=$(echo -n $s | cut -c 1 | tr '[:lower:]' '[:upper:]');
-    camel_case+=$(echo -n $s | cut -c 2-); 
+    camel_case+=$(echo -n $s | cut -c 2-);
   done
   class_name=$(echo $camel_case | cut -c 1 | tr '[:lower:]' '[:upper:]')
   class_name+=$(echo $camel_case | cut -c 2-)
@@ -95,7 +122,7 @@ apply_naming_conventions() {
 
 check_if_file_exists() {
   if [[ "$force_file_overwrite" == "no" ]] && [[ -f "$1" ]]; then
-    echo "Override existing file \"$1\"? (a/y/n)" 
+    echo "Override existing file \"$1\"? (a/y/n)"
     read answer
     case $answer in
       'a') force_file_overwrite="yes" ;;
@@ -123,7 +150,7 @@ using namespace std;
 class ${class_name} {
     public:
         ${class_name}();
-        ~${class_name}();       
+        ~${class_name}();
     protected:
     private:
 };
@@ -135,9 +162,9 @@ EOF
 
 create_source_file() {
 check_if_file_exists "$1"
-add_license '//' "$author_name" "$1" 
+add_license '//' "$author_name" "$1"
 cat << EOF >> "$1"
-#ifndef ${macro_name}_${extension_macro_name}_ 
+#ifndef ${macro_name}_${extension_macro_name}_
 #define ${macro_name}_${extension_macro_name}_
 #include "${file_name}.h"
 #include <iostream>
@@ -149,7 +176,7 @@ ${class_name}::${class_name}() {
 
 ///
 ${class_name}::~${class_name}() {
-    
+
 }
 
 //////////////////////////// PRIVATE MEMBERS ///////////////////////////////
@@ -162,7 +189,7 @@ EOF
 
 create_unit_test_file() {
 check_if_file_exists "$1"
-add_license '//' "$author_name" "$1" 
+add_license '//' "$author_name" "$1"
 cat << EOF >> "$1"
 #include "${file_name}.h"
 // C system files.
@@ -198,11 +225,11 @@ EXECUTABLE=\$(NAME)
 .PHONY: all clean
 
 all: \$(EXECUTABLE)
-	
-\$(EXECUTABLE): \$(OBJECTS) \$(NAME).h \$(NAME)-makefile 
+
+\$(EXECUTABLE): \$(OBJECTS) $makefile_name
 	\$(CC) \$(LDFLAGS) \$(OBJECTS) -o \$@
 
-.${extension_name}.o:  %.${extension_name} \$(SOURCES) \$(NAME).h \$(NAME)-makefile
+.${extension_name}.o:  %.${extension_name} \$(SOURCES) \$(NAME).h
 	\$(CC) \$(CFLAGS) -c \$< -o \$@
 
 clean:
@@ -210,28 +237,6 @@ clean:
 EOF
 }
 
-
-main() {
-  local flag
-  force_file_overwrite="no"
-  while getopts 'f' flag; do
-    case ${flag} in
-      f) force_file_overwrite="yes" && shift ;;
-      *) die "invalid option ${flag}" && shift ;;
-    esac
-  done
-    
-  if [[ $# -lt 1 ]]; then
-    help # class-name argument is mandatory
-  fi
-    
-  apply_naming_conventions "$@"
-  create_header_file "${dir_name}/${file_name}.h"
-  create_source_file "${dir_name}/${file_name}.${extension_name}"
-  create_unit_test_file "${dir_name}/${file_name}-test.${extension_name}"
-  create_makefile "${dir_name}/${file_name}-makefile"
-  echo "Done. Output can be compiled with: cd \"$dir_name\"; make -f ${file_name}-makefile"
-}
 
 main "$@"
 exit 0
